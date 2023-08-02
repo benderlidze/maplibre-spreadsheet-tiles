@@ -58,7 +58,20 @@
         });
         //add navigation control
         map.addControl(new maplibregl.NavigationControl());
-        
+
+        //show current user position
+        map.addControl(new maplibregl.GeolocateControl({
+            positionOptions: {
+                enableHighAccuracy: true
+            },
+            trackUserLocation: true
+        }));
+
+
+        //get current user position on map load    
+
+
+
 
         map.on('load', () => {
 
@@ -77,14 +90,33 @@
                                 'coordinates': [+d.lng, +d.lat]
                             },
                             'properties': {
-                                'name': d.name,
-                                'description': d.description,
-                                'image': d.image,
-                                'url': d.url
+                                ...d
                             }
                         }
                     });
                     map.fitBounds(bounds, { padding: 150 });
+
+
+                    map.addSource('user-location', {
+                        'type': 'geojson',
+                        'data': {
+                            'type': 'FeatureCollection',
+                            'features': []
+                        }
+                    });
+
+                    map.addLayer({
+                        'id': 'user-location',
+                        'type': 'circle',
+                        'source': 'user-location',
+                        'paint': {
+                            'circle-radius': 8,
+                            'circle-color': '#0000FF',
+                            'circle-stroke-width': 2,
+                            'circle-stroke-color': '#fff'
+                        }
+                    });
+
 
                     map.addSource('markers', {
                         'type': 'geojson',
@@ -110,7 +142,7 @@
                     map.on("click", "circles", (e) => {
                         console.log('e', e);
                         const coordinates = e.features[0].geometry.coordinates.slice();
-                        const { name, description, website } = e.features[0].properties;
+                        const { name, description, website, address } = e.features[0].properties;
 
                         const popup = new maplibregl.Popup()
                             .setLngLat(coordinates)
@@ -118,6 +150,9 @@
                                 <div>
                                     <h3>${name}</h3>
                                     <a href="${website}" target="_blank">Website</a>
+                                    <div>
+                                        <a target="_blank" href="https://www.google.com/maps?saddr=My+Location&daddr=${address}">Get Directions</a>
+                                    </div>
                                 </div>
                             `)
                             .addTo(map);
@@ -131,6 +166,27 @@
                         map.getCanvas().style.cursor = '';
                     });
 
+
+                    //get current user coordinates from browser
+                    navigator.geolocation.watchPosition((position) => {
+                        const { longitude, latitude } = position.coords;
+                        map.getSource('user-location').setData({
+                            'type': 'FeatureCollection',
+                            'features': [
+                                {
+                                    'type': 'Feature',
+                                    'geometry': {
+                                        'type': 'Point',
+                                        'coordinates': [longitude, latitude]
+                                    }
+                                }
+                            ]
+                        });
+                    }, (err) => {
+                        console.log('err', err);
+                    }, {
+                        enableHighAccuracy: true
+                    });
 
 
                 }).catch((err) => {
